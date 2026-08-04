@@ -31,28 +31,20 @@
 /*dev-Enum*/
 typedef enum
 {
-    /*
-     * System Messages (0x00 - 0x1F)
-     */
+    /*System Messages (0x00 - 0x1F)*/
     MSG_ACK            = 0x01,
     MSG_HEARTBEAT      = 0x02,
     MSG_ERROR          = 0x03,
 
-    /*
-     * Sensor Messages (0x20 - 0x3F)
-     */
+    /* Sensor Messages (0x20 - 0x3F) */
     MSG_SENSOR_DATA    = 0x20,
     MSG_SENSOR_CONFIG  = 0x21,
 
-    /*
-     * Device Messages (0x40 - 0x5F)
-     */
+    /* Device Messages (0x40 - 0x5F)*/
     MSG_DEVICE_INFO    = 0x40,
     MSG_DEVICE_STATUS  = 0x41,
 
-    /*
-     * Control Messages (0x60 - 0x7F)
-     */
+    /* Control Messages (0x60 - 0x7F) */
     MSG_COMMAND        = 0x60,
     MSG_COMMAND_RESULT = 0x61,
 
