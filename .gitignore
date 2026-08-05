@@ -2,7 +2,7 @@
 build/
 sdkconfig
 sdkconfig.old
-
+firmware/.clangd
 # Python cache and environments
 __pycache__/
 *.pyc
