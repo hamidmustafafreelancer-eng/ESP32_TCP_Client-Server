@@ -62,8 +62,7 @@ typedef struct
 /* Helper */
 static inline bool Packet_IsSystem(uint8_t type)
 {
-    return (type >= MSG_SYSTEM_MIN &&
-            type <= MSG_SYSTEM_MAX);
+    return (type <= MSG_SYSTEM_MAX);
 }
 
 static inline bool Packet_IsSensor(uint8_t type)
