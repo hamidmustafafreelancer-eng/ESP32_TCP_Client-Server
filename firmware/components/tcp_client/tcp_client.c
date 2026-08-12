@@ -165,7 +165,7 @@ static void tcp_client_task(void *pvParameters){
 
 
                 //recive ack
-                ssize_t rx_packet_size = recv(sock, rx_buffer, sizeof(rx_buffer) , 0);
+                ssize_t rx_packet_size = recv(sock, rx_buffer, sizeof(rx_buffer), 0);
                 //proccess 
                 if ( rx_packet_size< 0) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK) {
