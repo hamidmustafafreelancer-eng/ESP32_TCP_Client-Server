@@ -34,6 +34,23 @@ WAIT_WIFI
 
 
 
+/*dev -
+
+TCP Client
+
+↓
+
+Parse
+
+↓
+
+Route msg types 
+
+↓
+
+Handler*/
+
+
 #include "tcp_client.h"
 #include <stdio.h>
 #include <string.h>
@@ -46,10 +63,11 @@ WAIT_WIFI
 #include "errno.h"
 
 #include "packet.h"
+#include "protocol_handler.h"
 static const char *TAG ="TCP_CLIENT";
 
 /* config */
-#define SERVER_IP           "10.54.150.115" //Replace with your local IP
+#define SERVER_IP           "10.114.229.115" //Replace with your local IP
 #define SERVER_PORT          5000
 #define TCP_RX_BUFFER_SIZE   1024
 #define RECONNECT_MS         3000
@@ -110,9 +128,9 @@ static void tcp_client_task(void *pvParameters){
             }
             ESP_LOGI(TAG, "TCP Connected");
             ESP_LOGI(TAG,"Remote:%s:%d",SERVER_IP,SERVER_PORT);
-           
-        /*Communication Loop*/
-        const uint8_t payload[] = "sensor data";
+            s_is_connected = true;
+        /*  Communication Loop  */
+        const uint8_t payload[] = "sensor data";//dev-owned by app 
         ParsedPacket_t packet;
 
             while (s_run_task)
@@ -147,7 +165,7 @@ static void tcp_client_task(void *pvParameters){
 
 
                 //recive ack
-                ssize_t rx_packet_size = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+                ssize_t rx_packet_size = recv(sock, rx_buffer, sizeof(rx_buffer) , 0);
                 //proccess 
                 if ( rx_packet_size< 0) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -170,45 +188,32 @@ static void tcp_client_task(void *pvParameters){
                         continue;
                     }
                 //Process Message
-                switch (packet.type)
+                if (packet.type == MSG_ACK)
                 {
-                        case MSG_ACK:
-
-                            ESP_LOGI(TAG, "ACK Received");
-                            if (packet.sequence != sequence)
-                            {
-                                ESP_LOGW(TAG,
-                                        "ACK mismatch (Expected=%u Received=%u)",
-                                        sequence,
-                                        packet.sequence);
-                                break;
-                            }
-
-                            ESP_LOGI(TAG, "ACK Verified");
-                            ESP_LOGI(TAG, "Sequence : %u", packet.sequence);
-                            ESP_LOGI(TAG, "Length   : %u", packet.length);
-
-                            if (packet.length > 0)
-                            {
-                                ESP_LOGI(TAG,
-                                        "Payload  : %.*s",
-                                        packet.length,
-                                        (const char *)packet.payload);
-                            }
-                            /* ACK confirmed -> next application packet */
-                            sequence++;
-                            break;
-
-                        default:
-
-                            ESP_LOGW(TAG,
-                                    "Unsupported message type: %u",
-                                    packet.type);
-
-                            break;
+                    sequence++;
+                }
+                
+                 if (Packet_IsSystem(packet.type))
+                {
+                    Handle_System_Message(&packet);
+                }
+                else if (Packet_IsSensor(packet.type))
+                {
+                    Handle_Sensor_Message(&packet);
+                }
+                else if (Packet_IsDevice(packet.type))
+                {
+                    Handle_Device_Message(&packet);
+                }
+                else if (Packet_IsControl(packet.type))
+                {
+                    Handle_Control_Message(&packet);
+                }
+                else
+                {
+                    ESP_LOGW(TAG,"Unknown Message Type : 0x%02X",packet.type);
                 }
 
-                
 
 
                 vTaskDelay(pdMS_TO_TICKS(500)); // Standard simulation delay between transmissions
@@ -219,6 +224,7 @@ static void tcp_client_task(void *pvParameters){
     // Cleanup socket sequence before looping back to recovery layer
         s_is_connected = false; 
         ESP_LOGW(TAG, "Closing socket and preparing reconnect cycle.");
+        shutdown(sock, SHUT_RDWR);
         close(sock);
     
         if (s_run_task) {
@@ -232,7 +238,9 @@ static void tcp_client_task(void *pvParameters){
 
 
 void tcp_client_init(void){
-   BaseType_t ret = xTaskCreatePinnedToCore(tcp_client_task,"tcp_client",4096,NULL,5,NULL,1);
+
+    s_run_task = true;
+   BaseType_t ret = xTaskCreatePinnedToCore(tcp_client_task,"tcp_client",4096,NULL,5,&s_tcp_task_handle,1);
 
     if (ret != pdPASS)
     {
