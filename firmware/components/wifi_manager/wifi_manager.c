@@ -12,8 +12,8 @@
 #include "esp_netif.h" 
 #include "esp_event.h" 
 
-#define WIFI_SSID "NetWorkName"       // Change to Your SSID or AP name 
-#define WIFI_PASS "Net@42#@#"        // password 
+#define WIFI_SSID "MyFi"       // Change to Your SSID or AP name 
+#define WIFI_PASS "Net@#@#42"        // password 
 #define MAX_WIFI_RETRIES 10         // MAX TRY TO RECONNECT 
 
 static const char *TAG = "WiFi-Manager"; 
