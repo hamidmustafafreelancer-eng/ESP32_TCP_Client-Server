@@ -69,7 +69,18 @@ def parse_packet(data:bytes):
 
     #decode the header 
     packet_type = data[0]
-    if packet_type not in protocol.MESSAGE_NAMES:
+    # Validate message belongs to a supported family
+
+    valid = (
+
+    protocol.is_system(packet_type)
+    or protocol.is_sensor(packet_type)
+    or protocol.is_device(packet_type)
+    or protocol.is_control(packet_type)
+
+            )
+
+    if not valid:
         return None
     
     sequence    = int.from_bytes(data[1:3] , byteorder="big")
@@ -85,11 +96,11 @@ def parse_packet(data:bytes):
     #return struct data 
     return {
     "type": packet_type,
-    "type_name": protocol.MESSAGE_NAMES[packet_type],
+    "type_name": protocol.MESSAGE_NAMES.get(packet_type, "UNKNOWN"),
     "sequence": sequence,
     "length": payload_length,
     "payload": payload,
-    }
+    }   
 
 
 

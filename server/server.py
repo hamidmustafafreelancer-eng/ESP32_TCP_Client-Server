@@ -55,8 +55,10 @@ from parser import parse_packet
 
 
 
-# State: Configure Connection Parameters |>| 192.168.100.6 |>|10.54.150.115
-HOST = "10.54.150.115"      
+# State: Configure Connection Parameters
+# Use 0.0.0.0 to bind to all local interfaces. If you need a specific interface,
+# replace this with an IP address assigned to this machine.
+HOST = "10.114.229.115"
 PORT = 5000
 BUFFER_SIZE = 1024
 ACK_MESSAGE = b"ACK"
@@ -134,8 +136,32 @@ def main():
                         if parsed_packet is None:
                             log("Invalid packet")
                             continue
+                        msg_type = parsed_packet["type"]
 
-                         # Generate and transmit a structured binary ACK packet
+                        if protocol.is_system(msg_type):
+
+                            log("System Message")
+
+                        elif protocol.is_sensor(msg_type):
+
+                            log("Sensor Message")
+
+                        elif protocol.is_device(msg_type):
+
+                            log("Device Message")
+
+                        elif protocol.is_control(msg_type):
+
+                            log("Control Message")
+
+                        else:
+
+                            log("Unknown Message")
+                            continue
+
+
+
+                        # Generate and transmit a structured binary ACK packet
                         # We echo the sequence number back so the client knows WHICH message was processed
                         ack_packet = build_binary_ack(parsed_packet['sequence'])
                         client_socket.sendall(ack_packet)
@@ -159,13 +185,6 @@ def main():
 
             except OSError as error:
                     log(f"Socket Error: {error}")
-
-
-            
-        
-
-
-       
 
 
 if __name__ == "__main__":
