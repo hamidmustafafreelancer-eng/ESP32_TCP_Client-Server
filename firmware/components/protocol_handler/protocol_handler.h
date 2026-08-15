@@ -1,17 +1,13 @@
-#ifndef POROTOCOL_HANDLER_H
-#define POROTOCOL_HANDLER_H
+#ifndef PROTOCOL_HANDLER_H
+#define PROTOCOL_HANDLER_H
 
 #include "packet.h"
 
-/* Public API*/
-
-void Handle_System_Message(const ParsedPacket_t *packet);
-
-void Handle_Sensor_Message(const ParsedPacket_t *packet);
-
+void Handle_Telemetry_Message(const ParsedPacket_t *packet);
+void Handle_Command_Message(const ParsedPacket_t *packet);
+void Handle_Config_Message(const ParsedPacket_t *packet);
 void Handle_Device_Message(const ParsedPacket_t *packet);
-
-void Handle_Control_Message(const ParsedPacket_t *packet);
-
+void Handle_Error_Message(const ParsedPacket_t *packet);
+void Handle_Firmware_Message(const ParsedPacket_t *packet);
 
 #endif

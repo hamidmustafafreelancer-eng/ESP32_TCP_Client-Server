@@ -138,24 +138,19 @@ def main():
                             continue
                         msg_type = parsed_packet["type"]
 
-                        if protocol.is_system(msg_type):
-
-                            log("System Message")
-
-                        elif protocol.is_sensor(msg_type):
-
-                            log("Sensor Message")
-
+                        if protocol.is_telemetry(msg_type):
+                            log("Telemetry Message")
+                        elif protocol.is_command(msg_type):
+                            log("Command Message")
+                        elif protocol.is_config(msg_type):
+                            log("Config Message")
                         elif protocol.is_device(msg_type):
-
                             log("Device Message")
-
-                        elif protocol.is_control(msg_type):
-
-                            log("Control Message")
-
+                        elif protocol.is_error(msg_type):
+                            log("Error Message")
+                        elif protocol.is_firmware(msg_type):
+                            log("Firmware Message")
                         else:
-
                             log("Unknown Message")
                             continue
 

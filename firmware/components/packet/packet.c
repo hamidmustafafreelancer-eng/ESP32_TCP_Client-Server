@@ -22,13 +22,19 @@ Responsibilities:
 It does NOT process application messages.
 */
 
-/* Includes */
 #include "packet.h"
 #include <string.h>
 
- 
-/* Packet Builder*/
- 
+static bool packet_type_is_valid(uint8_t type)
+{
+    return (Packet_IsTelemetry(type) ||
+            Packet_IsCommand(type)   ||
+            Packet_IsConfig(type)    ||
+            Packet_IsDevice(type)    ||
+            Packet_IsError(type)     ||
+            Packet_IsFirmware(type));
+}
+
 size_t Build_Packet(msg_type_t msg_t,
                     uint16_t seq,
                     const uint8_t *payload,
@@ -36,9 +42,6 @@ size_t Build_Packet(msg_type_t msg_t,
                     uint8_t *tx_buffer,
                     size_t tx_buffer_size)
 {
-    /*------------------------------------------------------
-     * Parameter Validation
-     *-----------------------------------------------------*/
     if (tx_buffer == NULL)
     {
         return 0;
@@ -64,22 +67,13 @@ size_t Build_Packet(msg_type_t msg_t,
         return 0;
     }
 
-    /*------------------------------------------------------
-     * Message Type Validation (Protocol V2)
-     *-----------------------------------------------------*/
     uint8_t type = (uint8_t)msg_t;
 
-    if (!(Packet_IsSystem(type)  ||
-          Packet_IsSensor(type)  ||
-          Packet_IsDevice(type)  ||
-          Packet_IsControl(type)))
+    if (!packet_type_is_valid(type))
     {
         return 0;
     }
 
-    /*------------------------------------------------------
-     * Serialize Header (Big Endian)
-     *-----------------------------------------------------*/
     tx_buffer[0] = type;
 
     tx_buffer[1] = (uint8_t)(seq >> 8);
@@ -88,9 +82,6 @@ size_t Build_Packet(msg_type_t msg_t,
     tx_buffer[3] = (uint8_t)(payload_length >> 8);
     tx_buffer[4] = (uint8_t)(payload_length & 0xFF);
 
-    /*------------------------------------------------------
-     * Copy Payload
-     *-----------------------------------------------------*/
     if (payload_length > 0)
     {
         memcpy(&tx_buffer[PACKET_HEADER_SIZE],
@@ -101,41 +92,23 @@ size_t Build_Packet(msg_type_t msg_t,
     return PACKET_HEADER_SIZE + payload_length;
 }
 
- 
- /* Packet Parser   */
- 
 bool Parse_Packet(const uint8_t *buffer,
                   size_t buffer_len,
                   ParsedPacket_t *packet)
 {
-    /*------------------------------------------------------
-     * Parameter Validation
-     *-----------------------------------------------------*/
     if ((buffer == NULL) || (packet == NULL))
     {
         return false;
     }
 
-    /*------------------------------------------------------
-     * Packet must contain a complete header
-     *-----------------------------------------------------*/
     if (buffer_len < PACKET_HEADER_SIZE)
     {
         return false;
     }
 
-    /*------------------------------------------------------
-     * Decode Header
-     *-----------------------------------------------------*/
     uint8_t type = buffer[0];
 
-    /*------------------------------------------------------
-     * Protocol Range Validation
-     *-----------------------------------------------------*/
-    if (!(Packet_IsSystem(type)  ||
-          Packet_IsSensor(type)  ||
-          Packet_IsDevice(type)  ||
-          Packet_IsControl(type)))
+    if (!packet_type_is_valid(type))
     {
         return false;
     }
@@ -148,9 +121,6 @@ bool Parse_Packet(const uint8_t *buffer,
         ((uint16_t)buffer[3] << 8) |
         (uint16_t)buffer[4];
 
-    /*------------------------------------------------------
-     * Payload Validation
-     *-----------------------------------------------------*/
     if (length > MAX_PAYLOAD_SIZE)
     {
         return false;
@@ -161,9 +131,6 @@ bool Parse_Packet(const uint8_t *buffer,
         return false;
     }
 
-    /*------------------------------------------------------
-     * Populate Parsed Packet
-     *-----------------------------------------------------*/
     packet->type = type;
     packet->sequence = sequence;
     packet->length = length;

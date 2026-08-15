@@ -187,31 +187,38 @@ static void tcp_client_task(void *pvParameters){
                         ESP_LOGW(TAG, "Received invalid packet");
                         continue;
                     }
-                //Process Message
                 if (packet.type == MSG_ACK)
                 {
                     sequence++;
                 }
-                
-                 if (Packet_IsSystem(packet.type))
+
+                if (Packet_IsTelemetry(packet.type))
                 {
-                    Handle_System_Message(&packet);
+                    Handle_Telemetry_Message(&packet);
                 }
-                else if (Packet_IsSensor(packet.type))
+                else if (Packet_IsCommand(packet.type))
                 {
-                    Handle_Sensor_Message(&packet);
+                    Handle_Command_Message(&packet);
+                }
+                else if (Packet_IsConfig(packet.type))
+                {
+                    Handle_Config_Message(&packet);
                 }
                 else if (Packet_IsDevice(packet.type))
                 {
                     Handle_Device_Message(&packet);
                 }
-                else if (Packet_IsControl(packet.type))
+                else if (Packet_IsError(packet.type))
                 {
-                    Handle_Control_Message(&packet);
+                    Handle_Error_Message(&packet);
+                }
+                else if (Packet_IsFirmware(packet.type))
+                {
+                    Handle_Firmware_Message(&packet);
                 }
                 else
                 {
-                    ESP_LOGW(TAG,"Unknown Message Type : 0x%02X",packet.type);
+                    ESP_LOGW(TAG, "Unknown message type: 0x%02X", packet.type);
                 }
 
 
