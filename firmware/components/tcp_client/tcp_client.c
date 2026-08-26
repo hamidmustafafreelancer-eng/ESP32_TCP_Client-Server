@@ -78,7 +78,56 @@ static TaskHandle_t s_tcp_task_handle = NULL;
 static volatile bool s_is_connected = false;
 static volatile bool s_run_task = false;
 
+/*Helper */
+static bool tcp_send_all(int sock,const uint8_t *data,size_t length)
+{   
+    if (data == NULL || length == 0)
+    {
+        return false;
+    }
 
+   size_t total_sent = 0;
+
+    while (total_sent < length)
+    {
+        ssize_t bytes_sent = send(
+            sock,
+            data + total_sent,
+            length - total_sent,
+            0
+        );
+
+        if (bytes_sent < 0)
+        {
+            ESP_LOGE(
+                TAG,
+                "send() failed: errno %d",
+                errno
+            );
+
+            return false;
+        }
+
+        /*
+         * Defensive check:
+         * send() should not normally return 0 for
+         * a non-zero length, but treat it as failure.
+         */
+        if (bytes_sent == 0)
+        {
+            ESP_LOGE(
+                TAG,
+                "send() returned 0"
+            );
+
+            return false;
+        }
+
+        total_sent += (size_t)bytes_sent;
+    }
+
+    return true;
+}
 
 /*Main TCP Client processing thread*/
 
@@ -148,18 +197,9 @@ static void tcp_client_task(void *pvParameters){
                     continue;
                 }
                 //send packet 
-                int bytes_sent = send(sock,tx_buffer,tx_packet_size, 0);
-                if (bytes_sent < 0) 
+               if (!tcp_send_all(sock,tx_buffer,tx_packet_size))
                 {
-                    ESP_LOGE(TAG, "Error occurred during sending packet: errno %d", errno);
-                    break;
-                }
-                if ((size_t)bytes_sent != tx_packet_size)
-                {
-                    ESP_LOGE(TAG,
-                            "Partial transmission (%d/%u bytes)",
-                            bytes_sent,
-                            (unsigned)tx_packet_size);
+                    ESP_LOGE(TAG, "Failed to send complete packet");
                     break;
                 }
 
