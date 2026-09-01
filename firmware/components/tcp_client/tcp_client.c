@@ -67,7 +67,7 @@ Handler*/
 static const char *TAG ="TCP_CLIENT";
 
 /* config */
-#define SERVER_IP           "10.114.229.115" //Replace with your local IP
+#define SERVER_IP           "10.90.22.115" //Replace with your local IP
 #define SERVER_PORT          5000
 #define TCP_RX_BUFFER_SIZE   1024
 #define RECONNECT_MS         3000
@@ -263,7 +263,7 @@ static void tcp_client_task(void *pvParameters){
 
 
 
-                vTaskDelay(pdMS_TO_TICKS(500)); // Standard simulation delay between transmissions
+                vTaskDelay(pdMS_TO_TICKS(3000)); // Standard simulation delay between transmissions
                     
                  
             }
