@@ -58,7 +58,7 @@ from parser import parse_packet
 # State: Configure Connection Parameters
 # Use 0.0.0.0 to bind to all local interfaces. If you need a specific interface,
 # replace this with an IP address assigned to this machine.
-HOST = "10.114.229.115"
+HOST = "10.90.22.115" 
 PORT = 5000
 BUFFER_SIZE = 1024
 ACK_MESSAGE = b"ACK"
