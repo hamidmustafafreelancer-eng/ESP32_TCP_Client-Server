@@ -3,6 +3,7 @@ build/
 sdkconfig
 sdkconfig.old
 firmware/.clangd
+
 # Python cache and environments
 __pycache__/
 *.pyc
@@ -77,6 +78,7 @@ env/
 
 # Language Servers
 .clangd/
+/.clangd
 .ccls-cache/
 compile_commands.json
 
