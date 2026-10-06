@@ -6,6 +6,7 @@
 #include "string.h" 
 #include "client_config.h"  //Centralized System Config File
 #include "wifi_manager.h" 
+#include "freertos/event_groups.h"
 #include "esp_log.h" 
 #include "esp_err.h" 
 #include "esp_wifi.h" 
@@ -22,6 +23,13 @@ static bool s_connected = false;
 static uint8_t s_retry_num = 0; 
 static bool s_allow_reconnect = true; 
 
+//Private Event Group Handle
+static EventGroupHandle_t s_network_event_group = NULL;
+
+/* Getter Function API to expose the handle cleanly */
+EventGroupHandle_t wifi_manager_get_event_group(void) {
+    return s_network_event_group;
+}
 /* Wifi Event Handler */
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) { 
     if (event_base == WIFI_EVENT) { 
@@ -34,10 +42,18 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
             case WIFI_EVENT_STA_CONNECTED: 
                 ESP_LOGI(TAG, "Connected to Access Point. Waiting for DHCP lease..."); 
+                //Set the Wi-Fi Bit
+                if (s_network_event_group) {
+                    xEventGroupSetBits(s_network_event_group, WIFI_CONNECTED_BIT);
+                }
                 break; 
 
             case WIFI_EVENT_STA_DISCONNECTED: 
                 s_connected = false; 
+                //Clear BOTH Bits instantly on network drop
+                if (s_network_event_group) {
+                    xEventGroupClearBits(s_network_event_group, WIFI_CONNECTED_BIT | IP_ASSIGNED_BIT);
+                }
                 if (s_allow_reconnect) { 
                     if (s_retry_num < MAX_WIFI_RETRIES) { 
                         s_retry_num++; 
@@ -62,7 +78,10 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
                 ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data; 
                 s_retry_num = 0; 
                 s_connected = true; 
-
+                //Set the IP Assigned Bit
+                if (s_network_event_group) {
+                    xEventGroupSetBits(s_network_event_group, IP_ASSIGNED_BIT);
+                }
                 ESP_LOGI(TAG, "===================================="); 
                 ESP_LOGI(TAG, "Wi-Fi Connection Established Successfully"); 
                 ESP_LOGI(TAG, "IP Address : " IPSTR, IP2STR(&event->ip_info.ip)); 
@@ -93,7 +112,13 @@ void wifi_manager_init(void) {
 
     // 2. Initialize the Underlying Network Interface Layer 
     ESP_ERROR_CHECK(esp_netif_init()); 
-
+    
+    //Allocate Event Group memory before registering events
+    s_network_event_group = xEventGroupCreate();
+    if (s_network_event_group == NULL) {
+        ESP_LOGE(TAG, "Failed to create Network Event Group!");
+        return;
+    }
     // 3. Create System Default Event Loop if missing 
     esp_err_t loop_ret = esp_event_loop_create_default(); 
     if (loop_ret != ESP_OK && loop_ret != ESP_ERR_INVALID_STATE) { 

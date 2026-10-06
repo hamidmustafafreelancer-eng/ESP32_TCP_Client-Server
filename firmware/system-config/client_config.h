@@ -22,5 +22,14 @@
 #define RECEIVE_TIMEOUT_MS   10000
 #define RECONNECT_MS         3000
 
+/* ───────────────────────────────────────────────────────────────────────────
+ *  EVENT GROUP NETWORK BITMASKS
+ * ─────────────────────────────────────────────────────────────────────────── */
+#define WIFI_CONNECTED_BIT  (1 << 0) // Bit 0
+#define IP_ASSIGNED_BIT     (1 << 1) // Bit 1
+
+// The total logical target combination required for socket execution
+#define NETWORK_READY_BITS  (WIFI_CONNECTED_BIT | IP_ASSIGNED_BIT)
+
 
 #endif

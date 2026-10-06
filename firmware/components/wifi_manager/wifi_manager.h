@@ -2,10 +2,15 @@
 #define WIFI_MANAGER_H_
 
 #include <stdbool.h>
-
+/* Core FreeRTOS dependencies for EventGroupHandle_t */
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+//Expose the Event Group handle to the system cleanly
+EventGroupHandle_t wifi_manager_get_event_group(void);
 
 /**
  * @brief Initializes the Wi-Fi Manager state machine.

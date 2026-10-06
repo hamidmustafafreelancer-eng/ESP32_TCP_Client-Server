@@ -54,6 +54,7 @@ Handler*/
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "freertos/event_groups.h"
 
 /* Standard C Libraries */
 #include <stdio.h>
@@ -161,22 +162,40 @@ static void tcp_client_task(void *pvParameters){
     uint8_t rx_buffer[PACKET_HEADER_SIZE + TCP_RX_BUFFER_SIZE];
     uint16_t sequence = 0;
 
+    // 1. Fetch the absolute Event Group handle from the Wi-Fi Manager module
+    EventGroupHandle_t net_events = wifi_manager_get_event_group();
+    if (net_events == NULL) {
+        ESP_LOGE(TAG, "Critical error: Network Event Group handle is null!");
+        vTaskDelete(NULL);
+        return;
+    }
+
     struct sockaddr_in dest_addr;
     // Configure Target Server Address Structure
     dest_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(SERVER_PORT);
-    
+
+    // Read s_run_task atomically if atomics are wired, or standard check
     while (s_run_task) {
         /*creat a scockt & connect*/
-            // 1. Wait until Wi-Fi Manager confirms network layer is fully ready
-            if (!wifi_manager_is_connected()) {
-                ESP_LOGW(TAG, "Wi-Fi not ready. Waiting for network connection...");
-                vTaskDelay(pdMS_TO_TICKS(2000));
-                continue;
-            }
+             ESP_LOGI(TAG, "Waiting for Wi-Fi association and valid DHCP IP lease...");
+            
+             // BLOCK INDEFINITELY until both bits are set at the OS level
+            EventBits_t bits = xEventGroupWaitBits(
+                net_events,                                    // The shared group handle
+                WIFI_CONNECTED_BIT | IP_ASSIGNED_BIT,      // The exact bits we are waiting for
+                pdFALSE,                                      // Do NOT clear the bits on exit
+                pdTRUE,                                    // Wait for BOTH bits to be set
+                portMAX_DELAY                                 // Block forever (0% CPU execution)
+            );
 
-            ESP_LOGI(TAG, "Network link active. Creating socket...");
+            // Double check sanity guard to confirm we unblocked due to valid bits
+            if ((bits & (WIFI_CONNECTED_BIT | IP_ASSIGNED_BIT)) != (WIFI_CONNECTED_BIT | IP_ASSIGNED_BIT)) {
+                continue; 
+            }
+            ESP_LOGI(TAG, "Network layer verified ready. Creating TCP socket...");
+
 
             //create TCP socket IPV4 
             int sock = socket(AF_INET,SOCK_STREAM,IPPROTO_IP);
@@ -209,9 +228,10 @@ static void tcp_client_task(void *pvParameters){
 
             while (s_run_task)
             {
-                // Check link state dynamically before expecting packet returns
-                if (!wifi_manager_is_connected()) {
-                    ESP_LOGW(TAG, "Wi-Fi Link dropped mid-session.");
+                // 3. Fast link integrity bit check before draining frames
+                bits = xEventGroupGetBits(net_events);
+                if ((bits & (WIFI_CONNECTED_BIT | IP_ASSIGNED_BIT)) != (WIFI_CONNECTED_BIT | IP_ASSIGNED_BIT)) {
+                    ESP_LOGW(TAG, "Event bits dropped mid-session. Tearing down socket.");
                     break;
                 }
                 /*implement queue communication*/
