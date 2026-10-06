@@ -2,6 +2,8 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.22)
 
+# Include both the standard components directory and your custom path if necessary
+set(EXTRA_COMPONENT_DIRS "components" "system-config")   
 # Include the core ESP-IDF build system macros
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 

@@ -4,6 +4,7 @@
 
 #include "stdio.h" 
 #include "string.h" 
+#include "client_config.h"  //Centralized System Config File
 #include "wifi_manager.h" 
 #include "esp_log.h" 
 #include "esp_err.h" 
@@ -12,9 +13,7 @@
 #include "esp_netif.h" 
 #include "esp_event.h" 
 
-#define WIFI_SSID "MyFi"       // Change to Your SSID or AP name 
-#define WIFI_PASS "Net@#@#42"        // password 
-#define MAX_WIFI_RETRIES 10         // MAX TRY TO RECONNECT 
+#include "client_config.h"  //Centralized System Config File
 
 static const char *TAG = "WiFi-Manager"; 
 

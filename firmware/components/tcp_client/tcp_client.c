@@ -50,33 +50,58 @@ Route msg types
 
 Handler*/
 
-
-#include "tcp_client.h"
-#include <stdio.h>
-#include <string.h>
+/* Core FreeRTOS Foundations (MUST BE FIRST) */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
-#include "wifi_manager.h"
+#include "freertos/queue.h"
+
+/* Standard C Libraries */
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+/* LwIP Socket Networking */
 #include "lwip/sockets.h"
 #include "lwip/err.h"
-#include "errno.h"
 
+/* Project Components */
+#include "esp_log.h"
+#include "wifi_manager.h"
 #include "packet.h"
 #include "protocol_handler.h"
-static const char *TAG ="TCP_CLIENT";
+#include "tcp_client.h"
 
-/* config */
-#define SERVER_IP           "10.90.22.115" //Replace with your local IP
-#define SERVER_PORT          5000
-#define TCP_RX_BUFFER_SIZE   1024
-#define RECONNECT_MS         3000
+#include "client_config.h"  //Centralized System Config File
 
+static const char *TAG = "TCP-client";
 
 /* Thread-safe state tracking variables */
 static TaskHandle_t s_tcp_task_handle = NULL;
 static volatile bool s_is_connected = false;
 static volatile bool s_run_task = false;
+
+/* NEW: Queue handle */
+static QueueHandle_t network_queue = NULL;
+
+/* ───────────────────────────────────────────────
+ *  NEW: Queue API
+ * ─────────────────────────────────────────────── */
+QueueHandle_t network_queue_init(void)
+{
+    network_queue = xQueueCreate(20, sizeof(network_message_t));
+    if (network_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create network queue");
+    }
+    return network_queue;
+}
+
+bool network_send(const network_message_t *msg, TickType_t wait)
+{
+    if (network_queue == NULL || msg == NULL) {
+        return false;
+    }
+    return (xQueueSend(network_queue, msg, wait) == pdPASS);
+}
 
 /*Helper */
 static bool tcp_send_all(int sock,const uint8_t *data,size_t length)
@@ -178,9 +203,9 @@ static void tcp_client_task(void *pvParameters){
             ESP_LOGI(TAG, "TCP Connected");
             ESP_LOGI(TAG,"Remote:%s:%d",SERVER_IP,SERVER_PORT);
             s_is_connected = true;
+
+
         /*  Communication Loop  */
-        const uint8_t payload[] = "sensor data";//dev-owned by app 
-        ParsedPacket_t packet;
 
             while (s_run_task)
             {
@@ -189,47 +214,56 @@ static void tcp_client_task(void *pvParameters){
                     ESP_LOGW(TAG, "Wi-Fi Link dropped mid-session.");
                     break;
                 }
-                //prepare payload 
-                size_t tx_packet_size = Build_Packet(MSG_SENSOR_DATA, sequence, payload, sizeof(payload) - 1, tx_buffer, sizeof(tx_buffer));
-                if (tx_packet_size == 0) {
-                    ESP_LOGE(TAG, "Packet build failed");
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    continue;
-                }
-                //send packet 
-               if (!tcp_send_all(sock,tx_buffer,tx_packet_size))
-                {
-                    ESP_LOGE(TAG, "Failed to send complete packet");
-                    break;
+                /*implement queue communication*/
+
+                network_message_t msg;
+                bool has_msg = (xQueueReceive(network_queue, &msg, pdMS_TO_TICKS(50)) == pdTRUE); // chanage the non-blocking queue read  to 50 
+
+                if (has_msg) {
+                    size_t tx_size = Build_Packet(msg.type, sequence,
+                                                msg.payload, msg.payload_len,
+                                                tx_buffer, sizeof(tx_buffer));
+                    if (tx_size == 0) {
+                        ESP_LOGE(TAG, "Packet build failed");
+                    } else if (!tcp_send_all(sock, tx_buffer, tx_size)) {
+                        ESP_LOGE(TAG, "Send failed — will reconnect");
+                        break;
+                    } else {
+                        ESP_LOGI(TAG, "Sent type=0x%02X seq=%u", msg.type, sequence);
+                        sequence++; // Increment on every send to preserve unique IDs
+                    }
+                
                 }
 
+                
 
-                //recive ack
-                ssize_t rx_packet_size = recv(sock, rx_buffer, sizeof(rx_buffer), 0);
-                //proccess 
-                if ( rx_packet_size< 0) {
+
+                /* CHANGED: Non-blocking recv check */
+                ssize_t rx_size = recv(sock, rx_buffer, sizeof(rx_buffer), MSG_DONTWAIT);//chanage the non-blocking recv to MSG_DONTWAIT to avoid deadlock scenarios
+
+                if (rx_size < 0) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                        ESP_LOGD(TAG, "recv timeout occurred, polling next cycle...");
-                        vTaskDelay(pdMS_TO_TICKS(500)); // Rate limit your transmission rate
+                        /* No data available — loop back to queue receive */
                         continue;
                     }
                     ESP_LOGE(TAG, "recv failed: errno %d", errno);
                     break;
-                } 
-                else if (rx_packet_size == 0) {
-                    ESP_LOGW(TAG, "Connection cleanly closed by remote server endpoint.");
+                }
+                else if (rx_size == 0) {
+                    ESP_LOGW(TAG, "Connection closed by remote.");
                     break;
-                } 
+                }
             
                 //Parse Incoming Packet
-                if (!Parse_Packet(rx_buffer, rx_packet_size, &packet))
+                ParsedPacket_t packet;
+                if (!Parse_Packet(rx_buffer, (size_t)rx_size, &packet))
                     {
                         ESP_LOGW(TAG, "Received invalid packet");
                         continue;
                     }
                 if (packet.type == MSG_ACK)
                 {
-                    sequence++;
+                    ESP_LOGI(TAG, "Server ACK received");
                 }
 
                 if (Packet_IsTelemetry(packet.type))
@@ -260,12 +294,7 @@ static void tcp_client_task(void *pvParameters){
                 {
                     ESP_LOGW(TAG, "Unknown message type: 0x%02X", packet.type);
                 }
-
-
-
-                vTaskDelay(pdMS_TO_TICKS(3000)); // Standard simulation delay between transmissions
-                    
-                 
+                    /* CHANGED: Removed vTaskDelay(3000) — queue timeout paces the loop */                 
             }
             
     // Cleanup socket sequence before looping back to recovery layer
@@ -294,9 +323,6 @@ void tcp_client_init(void){
         ESP_LOGE(TAG, "Failed to create TCP task");
     }
 }
-
-
-
 
 void tcp_client_stop(void) {
     if (s_tcp_task_handle == NULL) {
