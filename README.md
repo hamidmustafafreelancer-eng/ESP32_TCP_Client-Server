@@ -1,10 +1,10 @@
 # 🚀 ESP32 Decoupled Transport Framework (v2.0)
 
-![Platform](https://shields.io)
-![Framework](https://shields.io)
-![Language](https://shields.io)
-![Architecture](https://shields.io)
-![License](https://shields.io)
+![Platform](https://img.shields.io/badge/Platform-ESP32-blue)
+![Framework](https://img.shields.io/badge/Framework-ESP--IDF-orange)
+![Language](https://img.shields.io/badge/Language-C%20%7C%20Python-green)
+![Protocol](https://img.shields.io/badge/Protocol-TCP/IP-success)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 > **Architectural Note:** This repository is intentionally configured with `develop-branch` as the default landing view to showcase the production-grade, multi-core refactored architecture. To view the original synchronous prototype, check out the legacy `main` branch.
 
